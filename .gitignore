@@ -1,2 +1,5 @@
 .lia.cache
 *~
+*.vo
+*.glob
+*.aux
