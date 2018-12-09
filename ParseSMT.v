@@ -1,5 +1,6 @@
 Require Import Coq.ZArith.ZArith. Open Scope Z_scope.
 Require Import Coq.Lists.List. Import ListNotations.
+Require Import Coq.Logic.PropExtensionality.
 Require Import Coq.micromega.Lia.
 
 Definition allDistinct{A: Type}(l: list A): Prop :=
@@ -183,17 +184,21 @@ Proof.
   lia.
 Qed.
 
-Print Grammar constr.
+Lemma True_implies: forall (P: Prop), (True -> P) <-> P.
+Proof. tauto. Qed.
 
-(*Goal forall p: Prop, (and p p p).
-Goal forall (x: Z) ( foo: Z -> Z -> Z), (foo x x) = 1.
+Lemma implies_True: forall (P: Prop), (P -> True) <-> True.
+Proof. tauto. Qed.
 
-Goal forall x: Z, forall andA: Z -> Z -> Z, (andA x x) = 1.
+Lemma and_True: forall (P: Prop), (P /\ True) <-> P.
+Proof. tauto. Qed.
 
-Goal forall (x: Z) ( foo: Z -> Z -> Z), (foo x x) = 1.
-
-Goal forall (x: Z) ( and_: Z -> Z -> Z), (and_ x x) = 1.
-*)
+Lemma equals_True: forall (P: Prop), (P = True) <-> P.
+Proof.
+  intros. split; intros.
+  - subst. constructor.
+  - apply propositional_extensionality. tauto.
+Qed.
 
 Goal
 (*
@@ -595,8 +600,23 @@ preprocessed with preprocess.sh
 (check-sat)
 .
   intros.
-  cbv beta delta [with_pattern] in *.
+  (* cbv beta delta [with_pattern] in *. *)
+  cbv [with_pattern] in *.
 
+  rewrite! True_implies in H244.
+  rewrite! implies_True in H244.
+  rewrite! and_True in H244.
+  setoid_rewrite equals_True in H244.
+  apply H244; clear H244.
+  intro P. apply P. clear P.
+  intros P1 P2 P3.
+  apply P3; clear P3.
+  intro P; apply P; clear P.
+  intro P; apply P; clear P.
+  intros *.
+  intro P3. destruct P3 as [P3 P4].
+  split; reflexivity. (* turns out to be a trivial goal *)
+Qed.
 
 (* https://www.starexec.org/starexec/secure/details/benchmark.jsp?id=6920515
 (amortized queues in leon) declares datatypes, and these cannot be parsed as a goal
