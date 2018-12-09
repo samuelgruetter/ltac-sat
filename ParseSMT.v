@@ -33,18 +33,6 @@ Notation "'(forall' '(' '(' x1 T1 ')' ')' P ')'" :=
   ( forall (x1: T1), P)
   (only parsing, at level 0, x1 at level 0, T1 at level 0,
    P at level 0).
-(*
-Notation "'(forall' '(' '(' x1 T1 ')' ')' '(!' P ':pattern' '(' pat1 ')' ')' ')'" :=
-  ( forall x1: T1, P)
-  (only parsing, at level 10, x1 at level 0, T1 at level 0,
-   P at level 0, pat1 at level 0).
-
-
-Notation "'(forall' '(' '(' x1 T1 ')' '(' x2 T2 ')' ')' '(!' P ':pattern' '(' pat1 pat2 ')' ')' ')'" :=
-  ( forall (x1: T1) (x2: T2), P)
-  (only parsing, at level 10, x1 at level 0, T1 at level 0, x2 at level 0, T2 at level 0,
-   P at level 0, pat1 at level 0, pat2 at level 0).
-*)
 
 Notation "'(forall' '(' '(' x1 T1 ')' '(' x2 T2 ')' ')' P ')'" :=
   ( forall (x1: T1) (x2: T2), P)
@@ -103,26 +91,41 @@ Notation "'(let' '(' '(' v1 t1 ')' '(' v2 t2 ')' '(' v3 t3 ')' ')' u ')'" :=
      v2 at level 0, t2 at level 0,
      v3 at level 0, t3 at level 0,
      u at level 0).
+Notation "'(let' '(' '(' v1 t1 ')' '(' v2 t2 ')' '(' v3 t3 ')' '(' v4 t4 ')' ')' u ')'" :=
+  ( let v1 := t1 in let v2 := t2 in let v3 := t3 in let v4 := t4 in u)
+    (only parsing, at level 0,
+     v1 at level 0, t1 at level 0,
+     v2 at level 0, t2 at level 0,
+     v3 at level 0, t3 at level 0,
+     v4 at level 0, t4 at level 0,
+     u at level 0).
+Notation "'(let' '(' '(' v1 t1 ')' '(' v2 t2 ')' '(' v3 t3 ')' '(' v4 t4 ')' '(' v5 t5 ')' ')' u ')'" :=
+  ( let v1 := t1 in let v2 := t2 in let v3 := t3 in let v4 := t4 in let v5 := t5 in u)
+    (only parsing, at level 0,
+     v1 at level 0, t1 at level 0,
+     v2 at level 0, t2 at level 0,
+     v3 at level 0, t3 at level 0,
+     v4 at level 0, t4 at level 0,
+     v5 at level 0, t5 at level 0,
+     u at level 0).
 
 
 (* ignores the pattern *)
 Definition with_pattern{P T: Type}(pat: P)(t: T): T := t.
 
-Notation "'(!' P ':pattern' '(' x y .. z ')' ')'" :=
+Notation "P ':pattern' '(' x y .. z ')'" :=
   (with_pattern x (with_pattern y .. (with_pattern z P) .. ))
-  (only parsing, at level 0, x at level 0).
-
-Notation "'(!' P ':pattern' '(' x ')' ')'" :=
+  (only parsing, at level 10, x at level 0).
+Notation "P ':pattern' '(' x ')'" :=
   (with_pattern x P)
-  (only parsing, at level 0, x at level 0).
-
-(*
-(assert (forall ((c0 Int) (c1 Int)) (! (=> (not (= c0 c1)) (not (= (ClassRepr c0) (ClassRepr c1)))) :pattern ((ClassRepr c0) (ClassRepr c1)) )))
-*)
+  (only parsing, at level 10, x at level 0).
+Notation "'(!' P ')'" := P (only parsing, at level 0, P at level 10).
 
 (* Operations *)
 Notation "'(<=' a b ')'" := (a <= b) (only parsing, a at level 0, b at level 0).
 Notation "'(<' a b ')'" := (a < b) (only parsing, a at level 0, b at level 0).
+Notation "'(>=' a b ')'" := (a >= b) (only parsing, a at level 0, b at level 0).
+Notation "'(>' a b ')'" := (a > b) (only parsing, a at level 0, b at level 0).
 Notation "'(=' a b ')'" := (a = b) (only parsing, a at level 0, b at level 0).
 Notation "'(+' a b ')'" := (a + b) (only parsing, a at level 0, b at level 0).
 Notation "'(-' a b ')'" := (a - b) (only parsing, a at level 0, b at level 0).
@@ -137,14 +140,23 @@ Notation "'(and' a b c d ')'" := (a /\ b /\ c /\ d) (only parsing, a at level 0,
 Notation "'(and' a b c d e ')'" := (a /\ b /\ c /\ d /\ e) (only parsing, a at level 0, b at level 0, c at level 0, d at level 0, e at level 0).
 Notation "'(and' a b c d e f ')'" := (a /\ b /\ c /\ d /\ e /\ f) (only parsing, a at level 0, b at level 0, c at level 0, d at level 0, e at level 0, f at level 0).
 Notation "'(or' a b ')'" := (a \/ b) (only parsing, a at level 0, b at level 0).
+Notation "'(or' a b c ')'" := (a \/ b \/ c) (only parsing, a at level 0, b at level 0, c at level 0).
+Notation "'(or' a b c d ')'" := (a \/ b \/ c \/ d) (only parsing, a at level 0, b at level 0, c at level 0, d at level 0).
+Notation "'(or' a b c d e ')'" := (a \/ b \/ c \/ d \/ e) (only parsing, a at level 0, b at level 0, c at level 0, d at level 0, e at level 0).
+Notation "'(or' a b c d e f ')'" := (a \/ b \/ c \/ d \/ e \/ f) (only parsing, a at level 0, b at level 0, c at level 0, d at level 0, e at level 0, f at level 0).
 Notation "'(not' a ')'" := (~ a) (only parsing, a at level 0).
 
-(* Misc logic hack *)
+(* Misc logic hack
 Notation "'(=' a 'true)'" := (a: Prop) (only parsing, a at level 0).
+Notation "'(=>' 'true' 'true)'" := True (only parsing, at level 0).
+*)
 
 (* Datatypes *)
 Notation Int := Z (only parsing).
-Notation Bool := Prop (only parsing). (* TODO sometimes "bool" might be more appropriate *)
+Notation Bool := Prop (only parsing).
+Notation true := True (only parsing).
+Notation false := False (only parsing).
+(* TODO sometimes "bool" might be more appropriate *)
 
 (* Misc *)
 Notation "'(distinct' x y .. z ')'" := (allDistinct (cons x (cons y .. (cons z nil) ..)))
@@ -170,6 +182,18 @@ Proof.
   intros.
   lia.
 Qed.
+
+Print Grammar constr.
+
+(*Goal forall p: Prop, (and p p p).
+Goal forall (x: Z) ( foo: Z -> Z -> Z), (foo x x) = 1.
+
+Goal forall x: Z, forall andA: Z -> Z -> Z, (andA x x) = 1.
+
+Goal forall (x: Z) ( foo: Z -> Z -> Z), (foo x x) = 1.
+
+Goal forall (x: Z) ( and_: Z -> Z -> Z), (and_ x x) = 1.
+*)
 
 Goal
 (*
@@ -240,7 +264,7 @@ preprocessed with preprocess.sh
 (declare-fun AsOwner (Int Int) Int)
 (declare-fun System_dot_Int64 () Int)
 (declare-fun System_dot_Runtime_dot_InteropServices_dot__Exception () Int)
-(declare-fun or_ (Int Int) Int)
+(declare-fun _or_ (Int Int) Int)
 (declare-fun As_ (Int Int) Int)
 (declare-fun exposeVersion_ () Int)
 (declare-fun System_dot_Type () Int)
@@ -286,7 +310,7 @@ preprocessed with preprocess.sh
 (declare-fun RefArrayGet (Int Int) Int)
 (declare-fun ValueArrayGet (Int Int) Int)
 (declare-fun TypeObject (Int) Int)
-(declare-fun and_ (Int Int) Int)
+(declare-fun _and_ (Int Int) Int)
 (declare-fun BoxTester (Int Int) Int)
 (declare-fun Microsoft_dot_Contracts_dot_ObjectInvariantException () Int)
 (declare-fun IsValueType_ (Int) Int)
@@ -447,8 +471,8 @@ preprocessed with preprocess.sh
 (assert (forall ((x Int) (y Int)) (=> (and (<= 0 x) (<= 0 y)) (= (modulo (+ y x) y) (modulo x y)))))
 (assert (forall ((x Int) (y Int)) (let ((v_0 (- x y))) (=> (and (<= 0 v_0) (<= 0 y)) (= (modulo v_0 y) (modulo x y))))))
 (assert (forall ((a Int) (b Int) (d Int)) (! (=> (and (<= 2 d) (= (modulo a d) (modulo b d)) (< a b)) (<= (+ a d) b)) :pattern ((modulo a d) (modulo b d)) )))
-(assert (forall ((x Int) (y Int)) (! (=> (or (<= 0 x) (<= 0 y)) (<= 0 (and_ x y))) :pattern ((and_ x y)) )))
-(assert (forall ((x Int) (y Int)) (! (let ((v_0 (or_ x y))) (=> (and (<= 0 x) (<= 0 y)) (and (<= 0 v_0) (<= v_0 (+ x y))))) :pattern ((or_ x y)) )))
+(assert (forall ((x Int) (y Int)) (! (=> (or (<= 0 x) (<= 0 y)) (<= 0 (_and_ x y))) :pattern ((_and_ x y)) )))
+(assert (forall ((x Int) (y Int)) (! (let ((v_0 (_or_ x y))) (=> (and (<= 0 x) (<= 0 y)) (and (<= 0 v_0) (<= v_0 (+ x y))))) :pattern ((_or_ x y)) )))
 (assert (forall ((i Int)) (! (= (shl_ i 0) i) :pattern ((shl_ i 0)) )))
 (assert (forall ((i Int) (j Int)) (=> (<= 0 j) (= (shl_ i (+ j 1)) ( * (shl_ i j) 2)))))
 (assert (forall ((i Int)) (! (= (shr_ i 0) i) :pattern ((shr_ i 0)) )))
