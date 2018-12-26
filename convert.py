@@ -4,6 +4,7 @@ class Convert:
     def __init__(self, sourcefile, targetfile):
         self.s = sourcefile
         self.t = targetfile
+        self.constructor_arities = {}
         self.info_dict = self.build_info_dict()
         self.command_dict = self.build_command_dict()
         self.hyp_counter = 0
@@ -135,6 +136,7 @@ class Convert:
             else:
                 process_elem(i)
             i += 1
+        return i
 
     def sort(self, needs_paren=True):
         self.skip_whitespace()
@@ -177,7 +179,8 @@ class Convert:
         self.skip_whitespace()
         self.t.write('  | ')
         self.t.write(name)
-        self.process_list(self.constructor_arg)
+        arity = self.process_list(self.constructor_arg)
+        self.constructor_arities[name] = arity
         self.consume(')')
         self.t.write('\n')
 
@@ -237,21 +240,54 @@ class Convert:
             self.consume('(')
             if needs_paren:
                 self.t.write('(')
-            op = self.read_word()
-            if op in self.infix_ops:
-                sep = ' ' + self.infix_ops[op] + ' '
-            else:
-                sep = ' '
-                self.t.write(self.convert_name(op))
-                self.t.write(' ')
-            while True:
-                self.expr()
+            self.skip_whitespace()
+            if self.cur == '(':
+                self.consume('(')
                 self.skip_whitespace()
-                if not self.cur:
-                    raise ValueError('")" or expr expected, but EOF found')
-                if self.cur == ')':
-                    break
-                self.t.write(sep)
+                self.consume('_')
+                self.skip_whitespace()
+                self.consume('is')
+                self.skip_whitespace()
+                name = self.convert_name(self.read_word())
+                self.skip_whitespace()
+                self.consume(')')
+                op = 'is_' + name
+            else:
+                op = self.read_word()
+            if op == '_':
+                op = self.read_word()
+            if op == 'forall' or op == 'exists':
+                self.t.write(op)
+                self.t.write(' ')
+                self.skip_whitespace()
+                self.consume('(')
+                self.process_list(self.constructor_arg)
+                self.consume(')')
+                self.t.write(', ')
+                self.expr(needs_paren=False)
+            elif op == 'ite':
+                self.t.write('if ')
+                self.expr()
+                self.t.write(' then ')
+                self.expr()
+                self.t.write(' else ')
+                self.expr()
+            else:
+                if op in self.infix_ops:
+                    sep = ' ' + self.infix_ops[op] + ' '
+                else:
+                    sep = ' '
+                    self.t.write(self.convert_name(op))
+                    self.t.write(' ')
+                while True:
+                    self.expr()
+                    self.skip_whitespace()
+                    if not self.cur:
+                        raise ValueError('")" or expr expected, but EOF found')
+                    if self.cur == ')':
+                        break
+                    self.t.write(sep)
+            self.skip_whitespace()
             self.consume(')')
             if needs_paren:
                 self.t.write(')')
@@ -264,7 +300,7 @@ class Convert:
         self.t.write(str(self.hyp_counter))
         self.hyp_counter += 1
         self.t.write(' : ')
-        self.expr()
+        self.expr(needs_paren=False)
         self.t.write('.\n')
 
     def check_sat(self):
@@ -302,6 +338,7 @@ class Convert:
                 # End of file
                 break
             self.command()
+            self.t.write('\n')
         self.t.write('End Test.\n')
 
 if __name__ == "__main__":
