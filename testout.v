@@ -3,6 +3,38 @@ Definition Int := Z.
 Definition Bool := Prop.
 Open Scope Z_scope.
 
+Require Import Coq.Logic.Classical.
+
+Lemma or_not_to_impl: forall (A B: Prop),
+    A \/ ~ B <-> (B -> A).
+Proof.
+  intros. split; intros.
+  - destruct H.
+    + assumption.
+    + exfalso. auto.
+  - destruct (classic B); auto.
+Qed.
+
+Lemma not_or_to_impl: forall (A B: Prop),
+   ~ B \/ A  <-> (B -> A).
+Proof.
+  intros. split; intros.
+  - destruct H.
+    + exfalso. auto.
+    + assumption.
+  - destruct (classic B); auto.
+Qed.
+
+Ltac destruct1and :=
+  match goal with
+  | H: _ /\ _ |- _ =>
+    let H1 := fresh H "l" in
+    let H2 := fresh H "r" in
+    destruct H as [H1 H2];
+    idtac H;
+    try clear H (* needed if section var *)
+  end.
+
 Section Test.
 (*set-info :smt-lib-version 2.6*)
 
@@ -344,6 +376,30 @@ Hypothesis A92 : forall (_f : FldLoc)(_x : Loc), Btwn_0 _f _x _x _x.
 
 Theorem unsat: False.
 Proof.
+
+  repeat match goal with
+  | H: _ |- _ => rewrite or_not_to_impl in H; idtac H
+  end.
+  repeat match goal with
+  | H: _ |- _ => rewrite not_or_to_impl in H; idtac H
+  end.
+  unfold Bool in *.
+  repeat match goal with
+  | X: ?A, H: ?A -> ?B |- _ => specialize (H X); idtac H X
+  end.
+  repeat destruct1and.
+  repeat match goal with
+  | X: ?A, H: ?A -> ?B |- _ => specialize (H X); idtac H X
+  end.
+
+  repeat match goal with
+         | H: ?v = ?x |- _ => is_var x; assert_fails (is_var v); symmetry in H
+         end.
+  repeat match goal with
+         | H: ?x = ?v |- _ => is_var x; revert H
+         end.
+  intros.
+
 
 Abort.
 
