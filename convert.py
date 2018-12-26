@@ -120,7 +120,7 @@ class Convert:
     def convert_name(self, s):
         # TODO this might result in name clashes, maintain dict and generate fresh name
         # if needed
-        return s.replace('!', '_').replace('.', '_')
+        return s.replace('!', '_').replace('.', '_').replace('$', '_').replace('?', '_')
 
     # does not consume surrounding parentheses
     def process_list(self, process_elem, args=None):
@@ -207,6 +207,16 @@ class Convert:
         name2arity = self.read_list(self.read_name_and_arity)
         self.datatypes(name2arity)
 
+    def declare_sort(self):
+        name = self.convert_name(self.read_word())
+        arity = int(self.read_word())
+        self.t.write('Variable ')
+        self.t.write(name)
+        self.t.write(' : ')
+        for i in range(arity):
+            self.t.write('Type -> ')
+        self.t.write('Type.\n')
+
     def sort_followed_by_arrow(self, i):
         self.sort(needs_paren=False)
         self.t.write(' -> ')
@@ -230,6 +240,7 @@ class Convert:
         '*': '*',
         '+': '+',
         '=': '=',
+        '<=': '<=',
         'and': '/\\',
         'or': '\\/',
     }
@@ -317,6 +328,7 @@ class Convert:
             'set-info': self.set_info,
             'set-logic': self.set_logic,
             'declare-datatypes': self.declare_datatypes,
+            'declare-sort': self.declare_sort,
             'declare-fun': self.declare_fun,
             'assert': self.asssert,
             'check-sat': self.check_sat,
@@ -331,7 +343,13 @@ class Convert:
         self.consume(')')
 
     def run(self):
-        self.t.write('Section Test.\n')
+        self.t.write("""Require Import Coq.ZArith.ZArith.
+Definition Int := Z.
+Definition Bool := Prop.
+Open Scope Z_scope.
+
+Section Test.
+""")
         while True:
             self.skip_whitespace()
             if not self.cur:
@@ -347,6 +365,6 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2:
         infile = open(sys.argv[1])
     if len(sys.argv) >= 3:
-        outfile = open(sys.argv[2])
+        outfile = open(sys.argv[2], 'w')
     c = Convert(infile, outfile)
     c.run()
