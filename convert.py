@@ -7,39 +7,70 @@ class Convert:
         self.info_dict = self.build_info_dict()
         self.command_dict = self.build_command_dict()
         self.hyp_counter = 0
+        self.fwd()
 
-    def read_word(self):
-        c = ''
-        # skip whitespace
-        while True:
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('word expected, but EOF found')
-            if not c.isspace():
-                break
+    def fwd(self):
+        self.cur = self.s.read(1)
+
+    def consume(self, text):
+        w = self.s.read(len(text))
+        if not w:
+            raise ValueError(text + ' expected, but EOF found')
+        found = self.cur + w[:-1]
+        if found != text:
+            raise ValueError(text + ' expected, but ' + found + ' found')
+        self.cur = w[-1]
+
+    def read_until(self, predicate):
         res = ''
-        while True:
-            if not c or c.isspace() or c == ')' or c == '(':
-                break
-            res += c
-            c = self.s.read(1)
+        while self.cur and not predicate(self.cur):
+            res += self.cur
+            self.fwd()
         return res
 
-    def read_until(self, expect):
-        w = self.s.read(len(expect))
-        res = w
-        if not w:
-            raise ValueError('not enough input')
-        while True:
-            if w == expect:
-                break
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('not enough input')
-            w = w[1:] + c
-            res += c
-        return res[:-len(expect)]
+    def skip_whitespace(self):
+        self.read_until(lambda c: not c.isspace())
 
+    def read_word(self):
+        self.skip_whitespace()
+        if not self.cur:
+            raise ValueError('word expected, but EOF found')
+        return self.read_until(lambda c: c == '(' or c == ')' or c.isspace())
+
+    def read_quoted_string(self):
+        self.read_until(lambda c: c == '"')
+        self.consume('"')
+        res = self.read_until(lambda c: c == '"')
+        self.consume('"')
+        return res
+
+    def read_multiline_string(self):
+        self.read_until(lambda c: c == '|')
+        self.consume('|')
+        res = self.read_until(lambda c: c == '|')
+        self.consume('|')
+        return res
+
+    def info_smt_lib_version(self):
+        self.t.write(self.read_word())
+
+    def info_source(self):
+        self.t.write('|')
+        self.t.write(self.read_multiline_string())
+        self.t.write('|')
+
+    def info_license(self):
+        self.t.write('"')
+        self.t.write(self.read_quoted_string())
+        self.t.write('"')
+
+    def info_category(self):
+        self.t.write('"')
+        self.t.write(self.read_quoted_string())
+        self.t.write('"')
+
+    def info_status(self):
+        self.t.write(self.read_word())
 
     def build_info_dict(self):
         return {
@@ -49,24 +80,6 @@ class Convert:
             ':category': self.info_category,
             ':status': self.info_status
             }
-
-    def info_smt_lib_version(self):
-        self.t.write(self.read_until(')'))
-
-    def info_source(self):
-        self.read_until('|')
-        self.t.write(self.read_until('|)'))
-
-    def info_license(self):
-        self.read_until('"')
-        self.t.write(self.read_until('")'))
-
-    def info_category(self):
-        self.read_until('"')
-        self.t.write(self.read_until('")'))
-
-    def info_status(self):
-        self.t.write(self.read_until(')'))
 
     def set_info(self):
         self.t.write('(*set-info ')
@@ -78,95 +91,94 @@ class Convert:
 
     def set_logic(self):
         self.t.write('(*set-logic ')
-        logic_name = self.read_until(')')
+        logic_name = self.read_word()
         self.t.write(logic_name)
         self.t.write('*)\n')
 
-    def read_dict(self):
+    def read_list(self, read_elem):
         res = []
+        self.consume('(')
         while True:
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('not enough input')
-            if c == ')':
+            self.skip_whitespace()
+            if not self.cur:
+                raise ValueError('")" or list elem expected, but EOF found')
+            if self.cur == ')':
                 break
-            elif c == '(':
-                key = self.read_word()
-                val = self.read_until(')').strip()
-                res.append((key, val))
-            elif c.isspace():
-                pass # skipping whitepace
-            else:
-                raise ValueError('unexpected ' + c)
+            res.append(read_elem())
+        self.consume(')')
         return res
+
+    def read_name_and_arity(self):
+        self.consume('(')
+        name = self.convert_name(self.read_word())
+        arity = int(self.read_word())
+        self.skip_whitespace()
+        self.consume(')')
+        return (name, arity)
 
     def convert_name(self, s):
         # TODO this might result in name clashes, maintain dict and generate fresh name
         # if needed
         return s.replace('!', '_').replace('.', '_')
 
+    # does not consume surrounding parentheses
     def process_list(self, process_elem, args=None):
         i = 0
         while True:
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('not enough input')
-            if c == ')':
+            self.skip_whitespace()
+            if not self.cur:
+                raise ValueError('")" or list elem expected, but EOF found')
+            if self.cur == ')':
                 break
-            elif c == '(':
-                if args:
-                    process_elem(i, args[i])
-                else:
-                    process_elem(i)
-                i += 1
-            elif c.isspace():
-                pass
+            if args:
+                process_elem(i, args[i])
             else:
-                raise ValueError('unexpected ' + c)
+                process_elem(i)
+            i += 1
 
-    # reads one more closing parenthesis than opening parentheses
-    def read_until_cl_paren(self):
-        res = ''
-        depth = 0
-        while True:
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('not enough input')
-            if c == ')' and depth == 0:
-                break
-            elif c == '(':
-                depth += 1
-            elif c == ')':
-                depth -= 1
-            res += c
-        return res
+    def sort(self, needs_paren=True):
+        self.skip_whitespace()
+        if self.cur == '(':
+            self.consume('(')
+            if needs_paren:
+                self.t.write('(')
+            head = self.read_word()
+            if head == '_':
+                head = self.read_word()
+            self.t.write(head)
+            while True:
+                self.skip_whitespace()
+                if not self.cur:
+                    raise ValueError('")" or list elem expected, but EOF found')
+                if self.cur == ')':
+                    break
+                self.t.write(' ')
+                self.sort()
+            self.consume(')')
+            if needs_paren:
+                self.t.write(')')
+        else:
+            name = self.convert_name(self.read_word())
+            self.t.write(name)
 
     def constructor_arg(self, i):
+        self.consume('(')
         name = self.read_word()
         self.t.write('(')
         self.t.write(self.convert_name(name))
         self.t.write(' : ')
-        sort = self.read_until_cl_paren()
-        self.t.write(self.convert_name(sort))
+        self.sort(needs_paren=False)
+        self.consume(')')
         self.t.write(')')
 
     def constructor(self, i):
-        name = ''
-        read_closing = False
-        while True:
-            c = self.s.read(1)
-            if not c:
-                raise ValueError('not enough input')
-            if c == ')':
-                read_closing = True
-                break
-            elif c.isspace():
-                break
-            name += c
+        self.consume('(')
+        name = self.convert_name(self.read_word())
+        self.skip_whitespace()
         self.t.write('  | ')
-        self.t.write(self.convert_name(name))
-        if not read_closing:
-            self.process_list(self.constructor_arg)
+        self.t.write(name)
+        self.process_list(self.constructor_arg)
+        self.consume(')')
         self.t.write('\n')
 
     def datatype(self, i, nameAndArity):
@@ -176,69 +188,83 @@ class Convert:
             self.t.write('with ')
         self.t.write(nameAndArity[0])
         self.t.write(' := \n')
+        self.consume('(')
         self.process_list(self.constructor)
+        self.consume(')')
 
     def datatypes(self, name2arity):
+        self.skip_whitespace()
+        self.consume('(')
         self.process_list(self.datatype, name2arity)
+        self.consume(')')
         self.t.write('.\n')
 
     def declare_datatypes(self):
-        self.read_until('(')
-        name2arity_raw = self.read_dict()
-        name2arity = [ (self.convert_name(k), int(v)) for (k, v) in name2arity_raw ]
-        self.read_until('(')
+        self.skip_whitespace()
+        name2arity = self.read_list(self.read_name_and_arity)
         self.datatypes(name2arity)
 
-    def process_fun_decl_arg_sort_list(self):
-        while True:
-            c = self.s.read(1)
-            read_closing = False
-            sort = None
-            if not c:
-                raise ValueError('not enough input')
-            if c == ')':
-                break
-            elif c.isspace():
-                pass
-            elif c == '(':
-                sort = self.read_until_cl_paren()
-            else:
-                sort = c
-                while True:
-                    c = self.s.read(1)
-                    if not c:
-                        raise ValueError('not enough input')
-                    if c == ')':
-                        read_closing = True
-                        break
-                    elif c.isspace():
-                        break
-                    sort += c
-            if sort:
-                self.t.write(self.convert_name(sort))
-                self.t.write(' -> ')
-            if read_closing:
-                break
+    def sort_followed_by_arrow(self, i):
+        self.sort(needs_paren=False)
+        self.t.write(' -> ')
 
     def declare_fun(self):
         name = self.read_word()
         self.t.write('Variable ')
         self.t.write(self.convert_name(name))
         self.t.write(' : ')
-        self.read_until('(')
-        self.process_fun_decl_arg_sort_list()
-        rettype = self.read_until_cl_paren().strip()
-        self.t.write(self.convert_name(rettype))
+        self.skip_whitespace()
+        # list of arg types
+        self.consume('(')
+        self.process_list(self.sort_followed_by_arrow)
+        self.consume(')')
+        self.skip_whitespace()
+        # return type
+        self.sort(needs_paren=False)
         self.t.write('.\n')
 
+    infix_ops = {
+        '*': '*',
+        '+': '+',
+        '=': '=',
+        'and': '/\\',
+        'or': '\\/',
+    }
+
+    def expr(self, needs_paren=True):
+        self.skip_whitespace()
+        if self.cur == '(':
+            self.consume('(')
+            if needs_paren:
+                self.t.write('(')
+            op = self.read_word()
+            if op in self.infix_ops:
+                sep = ' ' + self.infix_ops[op] + ' '
+            else:
+                sep = ' '
+                self.t.write(self.convert_name(op))
+                self.t.write(' ')
+            while True:
+                self.expr()
+                self.skip_whitespace()
+                if not self.cur:
+                    raise ValueError('")" or expr expected, but EOF found')
+                if self.cur == ')':
+                    break
+                self.t.write(sep)
+            self.consume(')')
+            if needs_paren:
+                self.t.write(')')
+        else:
+            name = self.convert_name(self.read_word())
+            self.t.write(name)
+
     def asssert(self):
-        f = self.read_until_cl_paren()
-        f2 = self.convert_name(f).replace('(*', '( *')
         self.t.write('Hypothesis A')
         self.t.write(str(self.hyp_counter))
         self.hyp_counter += 1
         self.t.write(' : ')
-        self.t.write(f2)
+        self.expr()
         self.t.write('.\n')
 
     def check_sat(self):
@@ -262,26 +288,28 @@ class Convert:
             }
 
     def command(self):
+        self.consume('(')
         command_name = self.read_word()
         self.command_dict[command_name]()
+        self.skip_whitespace()
+        self.consume(')')
 
     def run(self):
         self.t.write('Section Test.\n')
         while True:
-            c = self.s.read(1)
-            if not c:
+            self.skip_whitespace()
+            if not self.cur:
                 # End of file
                 break
-            if c == '(':
-                self.command()
+            self.command()
         self.t.write('End Test.\n')
 
 if __name__ == "__main__":
-    filepath = sys.argv[1]
-    if filepath[-5:] != '.smt2':
-        raise ValueError('unexpected format')
-    filepath = filepath[:-5]
-    infile = open(filepath + '.smt2')
-    outfile = open(filepath + '.v', 'w')
+    infile = sys.stdin
+    outfile = sys.stdout
+    if len(sys.argv) >= 2:
+        infile = open(sys.argv[1])
+    if len(sys.argv) >= 3:
+        outfile = open(sys.argv[2])
     c = Convert(infile, outfile)
     c.run()
