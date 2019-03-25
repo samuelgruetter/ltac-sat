@@ -21,6 +21,28 @@ Proof.
   exact H12.
 Qed.
 
+Require Import Btauto.
+Open Scope bool_scope.
+
+Definition mygoal' :=
+  forall x1 x2 x3 x4 : bool,
+    (x1 || x2 || negb x3) &&
+    (negb x1 || negb x2 || x3) &&
+    (x2 || x3 || negb x4) &&
+    (negb x2 || negb x3 || x4) &&
+    (x1 || x3 || x4) &&
+    (negb x1 || negb x3 || negb x4) &&
+    (negb x1 || x2 || x4) &&
+    (x1 || negb x2 || negb x4)
+    = false.
+
+Goal mygoal'.
+Proof.
+  unfold mygoal'.
+  intros *.
+  Time btauto. (* Finished transaction in 0.012 secs (0.011u,0.s) (successful) *)
+Qed.
+
 Goal mygoal.
 Proof.
   unfold mygoal.
